@@ -39,6 +39,7 @@ spec:
     {{- end }}
       securityContext:
         {{- toYaml .Values.gc.podSecurityContext | nindent 8 }}
+      hostNetwork: {{ .Values.gc.hostNetwork }}
       containers:
       - name: gc
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -48,13 +49,16 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+      {{- with .Values.gc.extraEnvs }}
+        {{- toYaml . | nindent 8 }}
+      {{- end}}
         command:
           - "nfd-gc"
         args:
           {{- if .Values.gc.interval | empty | not }}
           - "-gc-interval={{ .Values.gc.interval }}"
           {{- end }}
-          {{- with .Values.gc.args }}
+          {{- with .Values.gc.extraArgs }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
         resources:
