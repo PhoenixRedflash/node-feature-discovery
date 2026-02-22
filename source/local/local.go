@@ -73,7 +73,7 @@ type localSource struct {
 	features   *nfdv1alpha1.Features
 	config     *Config
 	cancelFunc context.CancelFunc // cancels the active notifier goroutine
-	done       chan struct{}      // closed when notifier goroutine exits
+	wg         sync.WaitGroup     // tracks the active notifier goroutine
 	mu         sync.Mutex         // serializes SetNotifyChannel and protects fields
 }
 
@@ -325,35 +325,38 @@ func getFileContent(fileName string) ([][]byte, error) {
 	return lines, nil
 }
 
-func (s *localSource) runNotifier(ctx context.Context, ch chan *source.FeatureSource, watcher *fsnotify.Watcher, done chan struct{}) {
-	defer close(done)
-	rateLimit := time.NewTicker(time.Second)
-	defer rateLimit.Stop()
-	defer func() {
-		// Each goroutine is responsible for closing its own watcher
-		if err := watcher.Close(); err != nil {
-			klog.ErrorS(err, "failed to close fsnotify watcher")
-		}
-	}()
-	limit := false
-	for {
-		select {
-		case event := <-watcher.Events:
-			opAny := fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename | fsnotify.Chmod
-			if event.Op&opAny != 0 {
-				klog.V(2).InfoS("fsnotify event", "eventName", event.Name, "eventOp", event.Op)
-				if !limit {
-					fs := source.FeatureSource(s)
-					ch <- &fs
-					limit = true
-				}
+// runNotifier returns a function that watches for fsnotify events and sends
+// notifications on ch. The returned function closes the watcher when done.
+func (s *localSource) runNotifier(ctx context.Context, ch chan *source.FeatureSource, watcher *fsnotify.Watcher) func() {
+	return func() {
+		rateLimit := time.NewTicker(time.Second)
+		defer rateLimit.Stop()
+		defer func() {
+			// Each goroutine is responsible for closing its own watcher
+			if err := watcher.Close(); err != nil {
+				klog.ErrorS(err, "failed to close fsnotify watcher")
 			}
-		case err := <-watcher.Errors:
-			klog.ErrorS(err, "failed to watch features.d changes")
-		case <-rateLimit.C:
-			limit = false
-		case <-ctx.Done():
-			return
+		}()
+		limit := false
+		for {
+			select {
+			case event := <-watcher.Events:
+				opAny := fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename | fsnotify.Chmod
+				if event.Op&opAny != 0 {
+					klog.V(2).InfoS("fsnotify event", "eventName", event.Name, "eventOp", event.Op)
+					if !limit {
+						fs := source.FeatureSource(s)
+						ch <- &fs
+						limit = true
+					}
+				}
+			case err := <-watcher.Errors:
+				klog.ErrorS(err, "failed to watch features.d changes")
+			case <-rateLimit.C:
+				limit = false
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
 }
@@ -403,22 +406,16 @@ func (s *localSource) SetNotifyChannel(ctx context.Context, ch chan *source.Feat
 			return err
 		}
 
-		// Stop any existing notifier
-		s.stopNotifier()
-		prevDone := s.done
-
-		// Wait for the previous goroutine to fully exit before starting a new one.
+		// Stop any existing notifier and wait for it to fully exit.
 		// Safe to wait under lock since runNotifier doesn't acquire mu.
-		if prevDone != nil {
-			<-prevDone
-		}
+		s.stopNotifier()
+		s.wg.Wait()
 
 		// Create a cancellable context for the notifier goroutine
 		notifyCtx, cancel := context.WithCancel(ctx)
 		s.cancelFunc = cancel
-		s.done = make(chan struct{})
 
-		go s.runNotifier(notifyCtx, ch, watcher, s.done)
+		s.wg.Go(s.runNotifier(notifyCtx, ch, watcher))
 	}
 
 	return nil

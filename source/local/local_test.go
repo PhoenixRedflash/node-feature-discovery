@@ -104,15 +104,14 @@ func TestSetNotifyChannel_WatcherCleanup(t *testing.T) {
 	err := testSrc.SetNotifyChannel(ctx, ch)
 	assert.NoError(t, err)
 
-	// Verify cancelFunc and done are set
+	// Verify cancelFunc is set
 	testSrc.mu.Lock()
 	assert.NotNil(t, testSrc.cancelFunc)
-	done := testSrc.done
 	testSrc.mu.Unlock()
 
 	// Cancel context and wait for goroutine to exit
 	cancel()
-	<-done
+	testSrc.wg.Wait()
 
 	// After goroutine exits, watcher should be closed (verified by no panic/hang)
 }
@@ -143,12 +142,11 @@ func TestSetNotifyChannel_Reinitialization(t *testing.T) {
 	// Verify the second notifier is still active
 	testSrc.mu.Lock()
 	assert.NotNil(t, testSrc.cancelFunc)
-	done := testSrc.done
 	testSrc.mu.Unlock()
 
 	// Cleanup
 	cancel2()
-	<-done
+	testSrc.wg.Wait()
 }
 
 func TestSetNotifyChannel_ConcurrentCalls(t *testing.T) {
@@ -181,10 +179,9 @@ func TestSetNotifyChannel_ConcurrentCalls(t *testing.T) {
 	// Verify only one notifier is active
 	testSrc.mu.Lock()
 	assert.NotNil(t, testSrc.cancelFunc)
-	done := testSrc.done
 	testSrc.mu.Unlock()
 
 	// Cleanup
 	cancel()
-	<-done
+	testSrc.wg.Wait()
 }
