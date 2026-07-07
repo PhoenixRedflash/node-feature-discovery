@@ -16,6 +16,7 @@ subjects:
 {{- end }}
 
 {{- if and .Values.worker.enable .Values.worker.rbac.create }}
+{{- if has "node" .Values.worker.ownerRefs }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -31,6 +32,7 @@ subjects:
 - kind: ServiceAccount
   name: {{ include "node-feature-discovery.worker.serviceAccountName" . }}
   namespace: {{ include "node-feature-discovery.namespace" .  }}
+{{- end }}
 {{- end }}
 
 {{- if and .Values.topologyUpdater.enable .Values.topologyUpdater.rbac.create }}

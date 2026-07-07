@@ -689,6 +689,9 @@ func (w *nfdWorker) configure(ctx context.Context, filepath string, overrides st
 	}
 
 	w.applyConfigOverrides(c)
+	if c.Core.NoOwnerRefs || w.args.Overrides.NoOwnerRefs != nil {
+		klog.InfoS("usage of deprecated 'core.noOwnerRefs' configuration option or '-no-owner-refs' flag, please use 'core.ownerRefs: []' or '-owner-refs=' instead")
+	}
 
 	c.Core.sanitize()
 

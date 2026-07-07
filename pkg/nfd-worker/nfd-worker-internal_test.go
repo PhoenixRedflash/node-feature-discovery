@@ -17,6 +17,7 @@ limitations under the License.
 package nfdworker
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"regexp"
@@ -27,6 +28,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/vektra/errors"
 	fakeclient "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 
 	nfdv1alpha1 "sigs.k8s.io/node-feature-discovery/api/nfd/v1alpha1"
 	"sigs.k8s.io/node-feature-discovery/pkg/utils"
@@ -37,6 +40,44 @@ import (
 )
 
 const fakeLabelSourceName string = "testSource"
+
+func TestDeprecatedNoOwnerRefsWarning(t *testing.T) {
+	state := klog.CaptureState()
+	defer state.Restore()
+	klog.LogToStderr(false)
+
+	testCases := []struct {
+		name      string
+		args      *Args
+		overrides string
+	}{
+		{name: "configuration option", args: &Args{}, overrides: `{"core":{"noOwnerRefs":true}}`},
+		{name: "command-line flag", args: &Args{Overrides: ConfigOverrideArgs{NoOwnerRefs: ptr.To(true)}}},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var output bytes.Buffer
+			klog.SetOutput(&output)
+
+			w, err := NewNfdWorker(
+				WithArgs(tc.args),
+				WithKubernetesClient(fakeclient.NewClientset()),
+			)
+			if err != nil {
+				t.Fatalf("NewNfdWorker() returned error: %v", err)
+			}
+			worker := w.(*nfdWorker)
+			if err := worker.configure(context.Background(), "", tc.overrides); err != nil {
+				t.Fatalf("configure() returned error: %v", err)
+			}
+			klog.Flush()
+
+			if !strings.Contains(output.String(), "deprecated 'core.noOwnerRefs'") {
+				t.Fatalf("deprecation warning was not logged; output: %s", output.String())
+			}
+		})
+	}
+}
 
 func TestGetLabelsWithMockSources(t *testing.T) {
 	Convey("When I discover features from fake source and update the node using fake client", t, func() {

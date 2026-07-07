@@ -58,6 +58,7 @@ rules:
 {{- end }}
 
 {{- if and .Values.worker.enable .Values.worker.rbac.create }}
+{{- if has "node" .Values.worker.ownerRefs }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -72,6 +73,7 @@ rules:
   - nodes
   verbs:
   - get
+{{- end }}
 {{- end }}
 
 {{- if and .Values.topologyUpdater.enable .Values.topologyUpdater.rbac.create }}

@@ -198,9 +198,11 @@ least one owner still exists. For example, `node,ds` does not cause native
 garbage collection on a Node rebuild while the DaemonSet exists.
 
 Selecting `node` requires the worker service account to have `get` permission
-for Nodes. The bundled Helm and Kustomize deployments include this permission.
-The NFD garbage collector may still explicitly delete stale NodeFeature objects
-independently of native owner-reference garbage collection.
+for Nodes. The Helm chart creates this permission when `worker.ownerRefs`
+contains `node`. Kustomize installations must include the
+[`worker-node-rbac`](https://github.com/kubernetes-sigs/node-feature-discovery/tree/{{site.release}}/deployment/components/worker-node-rbac)
+component. The NFD garbage collector may still explicitly delete stale
+NodeFeature objects independently of native owner-reference garbage collection.
 
 > **NOTE:** This flag takes precedence over the
 > [`core.ownerRefs`](worker-configuration-reference.md#coreownerrefs)

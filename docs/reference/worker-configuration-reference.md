@@ -196,16 +196,21 @@ least one owner still exists. Thus, adding `ds` makes the DaemonSet the
 longest-lived owner during a Node rebuild.
 
 Selecting `node` requires the worker service account to have `get` permission
-for Nodes. The bundled Helm and Kustomize deployments include this permission;
-installations with custom RBAC must add it. The NFD garbage collector may still
-explicitly delete stale NodeFeature objects independently of native
-owner-reference garbage collection.
+for Nodes. The Helm chart creates this permission when `worker.ownerRefs`
+contains `node`. Kustomize installations must include the
+[`worker-node-rbac`](https://github.com/kubernetes-sigs/node-feature-discovery/tree/{{site.release}}/deployment/components/worker-node-rbac)
+component. Installations with custom RBAC must add the permission. The NFD
+garbage collector may still explicitly delete stale NodeFeature objects
+independently of native owner-reference garbage collection.
 
-When this option is changed, each running worker replaces the complete owner
-reference list on its existing NodeFeature during the next publication. This
-migrates live Nodes in place without deleting the NodeFeature, even when its
-discovered feature spec is unchanged. Nodes without a running worker converge
-when their worker next starts.
+Changes to this option take effect only after nfd-worker restarts; nfd-worker
+does not reload its configuration at runtime. On its first publication after a
+restart, each worker replaces the complete owner reference list on its existing
+NodeFeature. Thus, a DaemonSet rollout migrates live Nodes in place without
+deleting the NodeFeature, even when its discovered feature spec is unchanged.
+Changing `worker.ownerRefs` in a Helm release updates the worker Pod arguments
+and triggers this rollout. Nodes without a running worker converge when their
+worker next starts.
 
 > **NOTE:** Overridden by the
 > [`-owner-refs`](worker-commandline-reference.md#-owner-refs)
