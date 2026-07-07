@@ -519,6 +519,7 @@ var _ = NFDDescribe(Label("helm"), func() {
 			clusterRoles: []string{
 				"",
 				"-gc",
+				"-worker",
 			},
 		}),
 		Entry("topology-updater RBAC when enabled", rbacTestCase{
@@ -542,6 +543,7 @@ var _ = NFDDescribe(Label("helm"), func() {
 				"",
 				"-gc",
 				"-topology-updater",
+				"-worker",
 			},
 		}),
 		Entry("gc disabled removes gc RBAC", rbacTestCase{
@@ -563,6 +565,7 @@ var _ = NFDDescribe(Label("helm"), func() {
 			},
 			clusterRoles: []string{
 				"",
+				"-worker",
 			},
 			missingClusterRoles: []string{
 				"-gc",

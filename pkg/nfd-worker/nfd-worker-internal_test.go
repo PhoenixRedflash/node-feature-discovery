@@ -101,7 +101,7 @@ func TestConfigParse(t *testing.T) {
 			WithKubernetesClient(k8sCli))
 		So(err, ShouldBeNil)
 		worker := w.(*nfdWorker)
-		overrides := `{"core": {"labelSources": ["fake"],"noPublish": true},"sources": {"cpu": {"cpuid": {"attributeBlacklist": ["foo","bar"]}}}}`
+		overrides := `{"core": {"labelSources": ["fake"],"noPublish": true,"ownerRefs": []},"sources": {"cpu": {"cpuid": {"attributeBlacklist": ["foo","bar"]}}}}`
 
 		Convey("and no core cmdline flags have been specified", func() {
 			So(worker.configure(context.Background(), "non-existing-file", overrides), ShouldBeNil)
@@ -110,6 +110,8 @@ func TestConfigParse(t *testing.T) {
 				So(worker.config.Core.LabelSources, ShouldResemble, []string{"fake"})
 				So(worker.config.Core.FeatureSources, ShouldResemble, []string{"all"})
 				So(worker.config.Core.NoPublish, ShouldBeTrue)
+				So(worker.config.Core.OwnerRefs, ShouldNotBeNil)
+				So(*worker.config.Core.OwnerRefs, ShouldBeEmpty)
 			})
 		})
 		Convey("and a non-accessible file, but core cmdline flags and some overrides are specified", func() {

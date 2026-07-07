@@ -180,10 +180,52 @@ core:
   noPublish: true
 ```
 
+### core.ownerRefs
+
+The `core.ownerRefs` option selects the objects referenced as owners of the
+NodeFeature object. Valid values are `node`, `pod` and `ds`. An explicitly empty
+list disables owner references.
+
+- `node` ties the NodeFeature to the UID of the current Node and is recommended
+  for environments that rebuild Nodes under the same name.
+- `pod` ties it to the UID of the nfd-worker Pod.
+- `ds` ties it to the DaemonSet that owns the nfd-worker Pod.
+
+When multiple owners are configured, Kubernetes keeps the NodeFeature while at
+least one owner still exists. Thus, adding `ds` makes the DaemonSet the
+longest-lived owner during a Node rebuild.
+
+Selecting `node` requires the worker service account to have `get` permission
+for Nodes. The bundled Helm and Kustomize deployments include this permission;
+installations with custom RBAC must add it. The NFD garbage collector may still
+explicitly delete stale NodeFeature objects independently of native
+owner-reference garbage collection.
+
+When this option is changed, each running worker replaces the complete owner
+reference list on its existing NodeFeature during the next publication. This
+migrates live Nodes in place without deleting the NodeFeature, even when its
+discovered feature spec is unchanged. Nodes without a running worker converge
+when their worker next starts.
+
+> **NOTE:** Overridden by the
+> [`-owner-refs`](worker-commandline-reference.md#-owner-refs)
+> command line flag (if specified).
+
+Default: `[pod, ds]`
+
+Example:
+
+```yaml
+core:
+  ownerRefs: [node]
+```
+
 ### core.noOwnerRefs
 
 Setting `core.noOwnerRefs` to `true` disables setting the owner references
-of the NodeFeature object created by the nfd-worker.
+of the NodeFeature object created by the nfd-worker. This option is deprecated;
+use `core.ownerRefs: []` instead. When true, it takes precedence over
+`core.ownerRefs`.
 
 > **NOTE:** Overridden by the
 > [`-no-owner-refs`](worker-commandline-reference.md#-no-owner-refs)

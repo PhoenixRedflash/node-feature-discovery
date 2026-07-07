@@ -399,6 +399,8 @@ worker:
     #  labelWhiteList:
     #  noPublish: false
     #  noOwnerRefs: false
+    #  # Select from node, pod and ds. Use [] to disable owner references.
+    #  ownerRefs: [pod, ds]
     #  sleepInterval: 60s
     #  featureSources: [all]
     #  labelSources: [all]
